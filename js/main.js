@@ -295,30 +295,64 @@ function setupOrderNowScroll() {
   });
 }
 
+//Functional Search bar
 function setupSearch() {
+
   const searchInput = document.getElementById("search-input");
   const searchBtn = document.getElementById("search-btn");
 
+  if (!searchInput || !searchBtn || !menuContainer) {
+    return;
+  }
+
   function searchMenu() {
+
     const query = searchInput.value.trim().toLowerCase();
-    if (!query) {
-      // Show all
+     document.getElementById("menu").scrollIntoView({
+  behavior: "smooth"
+});
+
+    if (query === "") {
       renderMenu("All");
       return;
     }
-    const filtered = menuItems.filter(item => item.name.toLowerCase().includes(query) || item.description.toLowerCase().includes(query));
+
+    // Filter matching items
+    const filtered = menuItems.filter(item =>
+      item.name.toLowerCase().includes(query) ||
+      item.description.toLowerCase().includes(query) ||
+      item.category.toLowerCase().includes(query)
+    );
+
     menuContainer.innerHTML = "";
-    filtered.forEach(item => {
-      menuContainer.appendChild(createCard(item));
-    });
+
+    // Show matching items
+    if (filtered.length > 0) {
+
+      filtered.forEach(item => {
+        menuContainer.appendChild(createCard(item));
+      });
+
+    } else {
+
+      menuContainer.innerHTML = `
+        <p style="text-align:center; width:100%;">
+          No items found
+        </p>
+      `;
+
+    }
   }
 
+  searchInput.addEventListener("keyup", searchMenu);
   searchBtn.addEventListener("click", searchMenu);
+
   searchInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       searchMenu();
     }
   });
+
 }
 
 function setupContactForm() {
