@@ -821,15 +821,9 @@ function setupNewsletterForm() {
 // ===== Initialization =====
 
 async function init() {
-  await loadMenuData();
-
-  renderSpecials();
-  applyAllFilters();
-  updateCartCount();
-  renderCart();
-
-  setupFilterButtons();
+  // Bind interactive UI listeners immediately for instant input responsiveness (high INP)
   setupCartToggle();
+  setupFilterButtons();
   setupOrderNowScroll();
   setupSearchSuggestions();
   setupSearch();
@@ -837,19 +831,32 @@ async function init() {
   setupContactForm();
   setupNewsletterForm();
 
-  // Run dynamic order rendering and simulated status progress updates
-  renderOrdersList();
-  updateOrderStatuses();
-  setInterval(updateOrderStatuses, 3000); // Check status progress every 3s
-
   if (checkoutBtn) {
     checkoutBtn.addEventListener("click", () => {
       window.checkout();
     });
   }
+
+  // Load database items asynchronously without blocking UI interactions
+  await loadMenuData();
+
+  renderSpecials();
+  applyAllFilters();
+  updateCartCount();
+  renderCart();
+
+  // Run dynamic order rendering and simulated status progress updates
+  renderOrdersList();
+  updateOrderStatuses();
+  setInterval(updateOrderStatuses, 3000); // Check status progress every 3s
 }
 
-document.addEventListener("DOMContentLoaded", init);
+// Prevent race condition if DOMContentLoaded has already fired on direct reload
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", init);
+} else {
+  init();
+}
 
 // ===== Skeleton UI Helpers =====
 
