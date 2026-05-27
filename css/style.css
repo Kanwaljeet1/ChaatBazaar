@@ -2189,4 +2189,63 @@ button:disabled {
   transform: none !important;
   opacity: 0.6;
 }
+#voice-search-btn {
+  border: none;
+  background: #ff7043;
+  color: white;
+  padding: 0.6rem 0.9rem;
+  border-radius: 8px;
+  cursor: pointer;
+  margin-left: 0.4rem;
+  transition: 0.3s ease;
 }
+
+#voice-search-btn:hover {
+  background: #f4511e;
+}
+
+#voice-search-btn.listening {
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.12);
+    opacity: 0.7;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+/* ===== Combo Add Button ===== */
+
+.combo-add-btn {
+  background: #ff5722;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 30px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.3s ease;
+}
+
+.combo-add-btn:hover {
+  background: #e64a19;
+  transform: scale(1.05);
+}
+.combo-item-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+}
+
