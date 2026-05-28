@@ -25,8 +25,25 @@ async function loadMenuData() {
     }
     menuItems = await response.json();
   } catch (error) {
-    console.error("Failed to load menu data:", error);
-    menuItems = [];
+    console.warn("Failed to load menu data via fetch, attempting fallback script:", error);
+    try {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = "data/menu-fallback.js";
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+      if (window.MENU_FALLBACK) {
+        menuItems = window.MENU_FALLBACK;
+        console.log("Successfully loaded menu data from fallback script.");
+      } else {
+        throw new Error("window.MENU_FALLBACK is not defined.");
+      }
+    } catch (fallbackError) {
+      console.error("Failed to load fallback menu data:", fallbackError);
+      menuItems = [];
+    }
   }
 }
 
@@ -177,6 +194,29 @@ function renderRecentlyViewed() {
   recentlyViewedSection.style.display = "block";
   recentItems.forEach(item => {
     recentlyViewedContainer.appendChild(createCard(item));
+  });
+}
+
+function renderFavorites() {
+  const favoritesContainer = document.getElementById("favorites-container");
+  if (!favoritesContainer) return;
+
+  const recentItems = RecentlyViewed.getItems();
+  favoritesContainer.innerHTML = "";
+
+  if (recentItems.length === 0) {
+    favoritesContainer.innerHTML = `
+      <div class="empty-favorites" style="text-align:center;width:100%;padding:3rem 1rem;">
+        <h2 style="color:var(--text-color);margin-bottom:1rem;">No Favorite Items Yet</h2>
+        <p style="color:var(--text-muted);margin-bottom:2rem;">Explore our menu and click on items to add them to your favorites!</p>
+        <a href="menu.html" class="btn-primary" style="display:inline-block;text-decoration:none;padding:0.8rem 1.8rem;border-radius:30px;">Go to Menu</a>
+      </div>
+    `;
+    return;
+  }
+
+  recentItems.forEach(item => {
+    favoritesContainer.appendChild(createCard(item));
   });
 }
 
@@ -343,7 +383,7 @@ function updateCartCount() {
 
 function updateFavCount() {
   const favCount = document.getElementById("fav-count");
-  if (favCount) {
+  if (favCount && typeof RecentlyViewed !== 'undefined') {
     const recentItems = RecentlyViewed.getItems();
     favCount.textContent = recentItems.length;
   }
@@ -466,7 +506,11 @@ function renderOrdersList() {
           <span>Total Paid:</span>
           <strong>${formatPrice(order.total)}</strong>
         </div>
-        <button class="btn-reorder" onclick="reorderOrder('${order.id}')">Reorder Items</button>
+        <div class="order-actions-row" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.8rem; justify-content: flex-end; width: 100%;">
+          <button class="btn-reorder" onclick="reorderOrder('${order.id}')">Reorder Items</button>
+          <button class="btn-invoice-pdf" onclick="window.invoiceGenerator.downloadPDF('${order.id}')" style="background: #ff9800; color: #fff; border: none; border-radius: 30px; padding: 0.6rem 1.2rem; font-weight: 700; font-size: 0.9rem; cursor: pointer; box-shadow: 0 4px 10px rgba(255,152,0,0.3); transition: all 0.3s ease;">💾 PDF Invoice</button>
+          <button class="btn-invoice-print" onclick="window.invoiceGenerator.printReceipt('${order.id}')" style="background: #4caf50; color: #fff; border: none; border-radius: 30px; padding: 0.6rem 1.2rem; font-weight: 700; font-size: 0.9rem; cursor: pointer; box-shadow: 0 4px 10px rgba(76,175,80,0.3); transition: all 0.3s ease;">🖨️ Print Receipt</button>
+        </div>
       </div>
     `;
 
@@ -496,14 +540,14 @@ window.filterCategory = function(category) {
 window.checkout = async function() {
   if (cart.length === 0) {
     alert("Your cart is empty!");
-    return;
+    return false;
   }
 
   const validationResult = await validateDeliveryLocation();
 
   if (!validationResult.valid) {
     alert(validationResult.error);
-    return;
+    return false;
   }
 
   const newOrder = {
@@ -539,6 +583,7 @@ window.checkout = async function() {
   } else {
     console.warn('Delivery tracker is not ready yet. Order has been placed.');
   }
+  return true;
 };
 
 window.reorderOrder = function(orderId) {
@@ -957,10 +1002,35 @@ function setupActiveNavbar() {
   });
 }
 
-function updateFavCount() {
-  // Prevent ReferenceError
-  // You can later implement actual favorite count logic here
-  return;
+function setupDropdownFilterLinks() {
+  const dropdownFilters = document.querySelectorAll(".menu-filter");
+  dropdownFilters.forEach(link => {
+    link.addEventListener("click", (e) => {
+      const category = link.dataset.filter;
+      if (category === "Specials") {
+        const specialsSection = document.getElementById("specials");
+        if (specialsSection) {
+          specialsSection.scrollIntoView({ behavior: "smooth" });
+        }
+      } else {
+        renderMenu(category);
+        const filterButtons = document.querySelectorAll(".filter-btn");
+        filterButtons.forEach(btn => {
+          if (btn.dataset.filter === category) {
+            btn.classList.add("active");
+            btn.setAttribute("aria-pressed", "true");
+          } else {
+            btn.classList.remove("active");
+            btn.setAttribute("aria-pressed", "false");
+          }
+        });
+        const menuSection = document.getElementById("menu");
+        if (menuSection) {
+          menuSection.scrollIntoView({ behavior: "smooth" });
+        }
+      }
+    });
+  });
 }
 
 function saveCart() {
@@ -983,11 +1053,16 @@ async function init() {
   setupContactForm();
   setupNewsletterForm();
   setupActiveNavbar();
+  setupDropdownFilterLinks();
 
   if (checkoutBtn) {
-    checkoutBtn.addEventListener("click", () => {
-   window.location.href = "orders.html";
-});
+    checkoutBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      const success = await window.checkout();
+      if (success) {
+        window.location.href = "orders.html";
+      }
+    });
   }
 
   // Load database items asynchronously without blocking UI interactions
@@ -995,6 +1070,7 @@ async function init() {
 
   renderSpecials();
   renderRecentlyViewed();
+  renderFavorites();
   applyAllFilters();
   updateCartCount();
   updateFavCount();
