@@ -296,53 +296,76 @@ function createCard(item, highlightQuery = "") {
       ${outOfStockBadge}  <!-- ✅ NEW: Badge added here -->
     </div>
     <div class="card-footer">
-      <span class="price">${formatPrice(item.price)}</span>
-      <button class="add-btn" 
-        aria-label="Add ${item.name} to cart" 
-        ${buttonDisabled}
-        style="background-color: ${buttonColor};">
-        Add
-      </button>
+  <span class="price">${formatPrice(item.price)}</span>
+
+  <div class="quantity-wrapper">
+    ${
+      cart.find(ci => ci.item.id === item.id)
+        ? `
+    <div class="quantity-control">
+      <button class="minus-btn">−</button>
+      <span class="quantity-number">
+        ${cart.find(ci => ci.item.id === item.id).quantity}
+      </span>
+      <button class="plus-btn">+</button>
     </div>
+        `
+        : `
+          <button class="add-btn" aria-label="Add ${item.name} to cart">
+            Add
+          </button>
+        `
+    }
+  </div>
+</div>
   `;
 
-  const addBtn = card.querySelector(".add-btn");
-  //Only add event listener if item is available
-  if (isAvailable) {
-    addBtn.addEventListener("click", () => addToCart(item.id));
-  } else {
-    // Optional: Add click handler to show alert
-    addBtn.addEventListener("click", () => {
-      alert(`${item.name} is currently out of stock!`);
-    });
-  }
-
-
-  card.addEventListener("click", () => {
-    RecentlyViewed.addItem(item);
-    renderRecentlyViewed();
+const addBtn = card.querySelector(".add-btn");
+if (addBtn) {
+  addBtn.addEventListener("click", () => {
+    addToCart(item.id);
+    applyAllFilters();
+    renderSpecials();
   });
+}
+
+const plusBtn = card.querySelector(".plus-btn");
+if (plusBtn) {
+  plusBtn.addEventListener("click", () => {
+    addToCart(item.id);
+    applyAllFilters();
+    renderSpecials();
+  });
+}
+
+const minusBtn = card.querySelector(".minus-btn");
+if (minusBtn) {
+  minusBtn.addEventListener("click", () => {
+    removeFromCart(item.id);
+    applyAllFilters();
+    renderSpecials();
+  });
+}
 
   return card;
 }
 
 function renderSpecials() {
   if (!specialsContainer) return;
+
+  specialsContainer.innerHTML = "";
+
   const specials = menuItems.slice(0, 3);
 
-  showSkeletonCards(specialsContainer, specials.length);
-
-  setTimeout(() => {
-    specialsContainer.innerHTML = "";
-    specials.forEach(item => {
-      specialsContainer.appendChild(createCard(item));
-    });
-  }, 1500);
+  specials.forEach(item => {
+    specialsContainer.appendChild(createCard(item));
+  });
 }
 
 function renderMenu(filter = "All") {
   currentCategory = filter;
   applyAllFilters();
+  renderSpecials();
 }
 
 function renderRecentlyViewed() {
