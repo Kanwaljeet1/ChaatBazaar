@@ -623,7 +623,7 @@ function updateCartCount() {
 
 function updateFavCount() {
   const favCount = document.getElementById("fav-count");
-  if (favCount) {
+  if (favCount && typeof RecentlyViewed !== 'undefined') {
     const recentItems = RecentlyViewed.getItems();
     favCount.textContent = recentItems.length;
   }
@@ -757,7 +757,11 @@ function renderOrdersList() {
           <span>Total Paid:</span>
           <strong>${formatPrice(order.total)}</strong>
         </div>
-        <button class="btn-reorder" onclick="reorderOrder('${order.id}')">Reorder Items</button>
+        <div class="order-actions-row" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.8rem; justify-content: flex-end; width: 100%;">
+          <button class="btn-reorder" onclick="reorderOrder('${order.id}')">Reorder Items</button>
+          <button class="btn-invoice-pdf" onclick="window.invoiceGenerator.downloadPDF('${order.id}')" style="background: #ff9800; color: #fff; border: none; border-radius: 30px; padding: 0.6rem 1.2rem; font-weight: 700; font-size: 0.9rem; cursor: pointer; box-shadow: 0 4px 10px rgba(255,152,0,0.3); transition: all 0.3s ease;">💾 PDF Invoice</button>
+          <button class="btn-invoice-print" onclick="window.invoiceGenerator.printReceipt('${order.id}')" style="background: #4caf50; color: #fff; border: none; border-radius: 30px; padding: 0.6rem 1.2rem; font-weight: 700; font-size: 0.9rem; cursor: pointer; box-shadow: 0 4px 10px rgba(76,175,80,0.3); transition: all 0.3s ease;">🖨️ Print Receipt</button>
+        </div>
       </div>
     `;
 
@@ -792,33 +796,9 @@ window.checkout = async function () {
 
   const validationResult = await validateDeliveryLocation();
 
- if (!validationResult.valid) {
-
-  // Save delivery failure info
-  localStorage.setItem(
-    "deliveryError",
-    JSON.stringify({
-      error: validationResult.error,
-      distance: validationResult.distance,
-      restaurantLocation: validationResult.restaurantLocation
-    })
-  );
-
-  // Still allow redirect to orders page
-  return {
-    deliveryAvailable: false
-  };
-}
-
-  const subtotal = cart.reduce((sum, ci) => sum + ci.item.price * ci.quantity, 0);
-  let discount = 0;
-  let pointsRedeemed = 0;
-
-  if (loyaltyPointsApplied && typeof loyalty !== 'undefined') {
-    const balance = loyalty.getBalance();
-    pointsRedeemed = Math.min(balance, subtotal);
-    discount = pointsRedeemed; // 1 point = ₹1 discount
-    loyalty.redeemPoints(pointsRedeemed);
+  if (!validationResult.valid) {
+    alert(validationResult.error);
+    return false;
   }
 
   const finalTotal = subtotal - discount;
@@ -876,9 +856,7 @@ window.checkout = async function () {
   } else {
     console.warn('Delivery tracker is not ready yet. Order has been placed.');
   }
-  return {
-  deliveryAvailable: true
-};
+  return true;
 };
 
 window.reorderOrder = function (orderId) {
@@ -1345,17 +1323,14 @@ async function init() {
   setupDropdownFilterLinks();
 
   if (checkoutBtn) {
-  checkoutBtn.addEventListener("click", async (e) => {
-    e.preventDefault();
-
-    const result = await window.checkout();
-
-    // Always open orders page
-    if (result) {
-      window.location.href = `orders.html?delivery=${result.deliveryAvailable}`;
-    }
-  });
-}
+    checkoutBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      const success = await window.checkout();
+      if (success) {
+        window.location.href = "orders.html";
+      }
+    });
+  }
 
   // Load database items asynchronously without blocking UI interactions
   await loadMenuData();
