@@ -231,9 +231,9 @@
       user-select: none;
     }
     .header-inner {
-      max-width: 1200px;
+      max-width: 1600px;
       margin: 0 auto;
-      padding: 0.8rem 1rem;
+      padding: 1rem 1.8rem;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -682,6 +682,7 @@
       font-weight: 600;
       user-select: text;
       line-height: 1.4;
+      color: black;
     }
     .btn-primary {
       background: #e64a19;
@@ -2952,11 +2953,6 @@ select:focus-visible {
   }
 }
 
-/* Ensure links are underlined for clarity */
-a[href] {
-  text-decoration: underline;
-  text-decoration-color: rgba(255, 87, 34, 0.5);
-}
 
 /* Improve contrast of disabled buttons */
 button:disabled {
@@ -2992,7 +2988,7 @@ button:disabled {
   transform: none !important;
   opacity: 0.6;
 }
-}
+
 
 /* ===== Loyalty Wallet Styles ===== */
 .cart-loyalty-widget {
