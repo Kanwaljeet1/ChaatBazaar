@@ -3,6 +3,7 @@ let menuItems = [];
 let currentCategory = "All";
 let orders = JSON.parse(localStorage.getItem("chaatOrders")) || [];
 let cart = [];
+let loyaltyPointsApplied = false;
 
 // ===== Cart Manager Setup =====
 function setupCartManager() {
@@ -31,8 +32,25 @@ async function loadMenuData() {
 
     menuItems = await response.json();
   } catch (error) {
-    console.error("Failed to load menu data:", error);
-    menuItems = [];
+    console.warn("Failed to load menu data via fetch, attempting fallback script:", error);
+    try {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = "data/menu-fallback.js";
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+      if (window.MENU_FALLBACK) {
+        menuItems = window.MENU_FALLBACK;
+        console.log("Successfully loaded menu data from fallback script.");
+      } else {
+        throw new Error("window.MENU_FALLBACK is not defined.");
+      }
+    } catch (fallbackError) {
+      console.error("Failed to load fallback menu data:", fallbackError);
+      menuItems = [];
+    }
   }
 }
 
@@ -576,6 +594,12 @@ alt="${item.name}" />
         cartItem
       );
     });
+
+    updateCartSummary();
+    // Render Loyalty Points Widget at the end of the cart list
+    const points = typeof loyalty !== 'undefined' ? loyalty.getBalance() : 0;
+    const loyaltyDiv = document.createElement("div");
+    loyaltyDiv.className = "cart-loyalty-widget";
 
     const total = cart.reduce(
       (sum, ci) =>
