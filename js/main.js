@@ -1,3 +1,4 @@
+// ===== Global State =====
 let menuItems = [];
 let currentCategory = "All";
 let orders = JSON.parse(localStorage.getItem('chaatOrders')) || [];
@@ -8,6 +9,11 @@ let loyaltyPointsApplied = false;
  
 // Will be initialized in setupCartManager() after document loads
 function setupCartManager() {
+  if (!window.cartManager) {
+    console.error("cartManager is not defined");
+    return;
+  }
+
   cart = cartManager.getItems();
  
   // Subscribe to cart changes to keep cart variable in sync
@@ -22,9 +28,11 @@ function setupCartManager() {
 async function loadMenuData() {
   try {
     const response = await fetch("data/menu.json");
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
+
     menuItems = await response.json();
   } catch (error) {
     console.warn("Failed to load menu data via fetch, attempting fallback script:", error);
@@ -239,6 +247,7 @@ function setupCouponListeners() {
 // ===== Fuzzy Match & Highlighter Utilities =====
 function fuzzyMatch(target, query) {
   if (!target || !query) return false;
+
   const t = target.toLowerCase();
   const q = query.toLowerCase();
  
@@ -247,19 +256,29 @@ function fuzzyMatch(target, query) {
  
   // 2. Fuzzy sequencing character lookup
   let qIdx = 0;
+
   for (let i = 0; i < t.length; i++) {
     if (t[i] === q[qIdx]) {
       qIdx++;
-      if (qIdx === q.length) return true;
+
+      if (qIdx === q.length) {
+        return true;
+      }
     }
   }
+
   return false;
 }
  
 function highlightText(text, query) {
   if (!text)  return "";
   if (!query) return text;
-  const escapedQuery = query.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+
+  const escapedQuery = query.replace(
+    /[-\/\\^$*+?.()|[\]{}]/g,
+    "\\$&"
+  );
+
   const regex = new RegExp(`(${escapedQuery})`, "gi");
   return text.replace(regex, "<mark class='highlight'>$1</mark>");
 }
@@ -268,6 +287,7 @@ function highlightText(text, query) {
  
 function createCard(item, highlightQuery = "") {
   const card = document.createElement("article");
+
   card.className = "card";
   card.tabIndex  = 0;
   card.setAttribute("aria-label", `${item.name} - ${item.description}. Price: ${formatPrice(item.price)}.`);
@@ -287,31 +307,43 @@ function createCard(item, highlightQuery = "") {
   const buttonColor      = isAvailable  ? '#28a745'  : '#cccccc';
  
   card.innerHTML = `
-    <img src="${item.image}" alt="${item.name}" loading="lazy" />
+    <img src="${item.image}" 
+         alt="${item.name}" 
+         loading="lazy" />
+
     <div class="card-content">
+
       <div class="card-meta">
         <span class="rating" title="Rating: ${item.rating || 5.0}">${ratingStars} ${item.rating || '5.0'}</span>
         <span class="spice"  title="Spice level: ${item.spice}">${spiceIcon}</span>
       </div>
+
       <h3>${highlightedName}</h3>
+
       <p>${highlightedDesc}</p>
       <div class="card-tags">${dietaryTags}</div>
       ${outOfStockBadge}
     </div>
+
     <div class="card-footer">
       <span class="price">${formatPrice(item.price)}</span>
       <button class="add-btn"
         aria-label="Add ${item.name} to cart"
         ${buttonDisabled}
-        style="background-color: ${buttonColor};">
+        style="background-color:${buttonColor}"
+      >
         Add
       </button>
+
     </div>
   `;
  
   const addBtn = card.querySelector(".add-btn");
   if (isAvailable) {
-    addBtn.addEventListener("click", () => addToCart(item.id));
+    addBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      addToCart(item.id);
+    });
   } else {
     addBtn.addEventListener("click", () => alert(`${item.name} is currently out of stock!`));
   }
@@ -328,6 +360,7 @@ function createCard(item, highlightQuery = "") {
  
 function renderSpecials() {
   if (!specialsContainer) return;
+
   const specials = menuItems.slice(0, 3);
  
   showSkeletonCards(specialsContainer, specials.length);
@@ -370,13 +403,9 @@ function renderFavorites() {
   favoritesContainer.innerHTML = "";
  
   if (recentItems.length === 0) {
-    favoritesContainer.innerHTML = `
-      <div class="empty-favorites" style="text-align:center;width:100%;padding:3rem 1rem;">
-        <h2 style="color:var(--text-color);margin-bottom:1rem;">No Favorite Items Yet</h2>
-        <p style="color:var(--text-muted);margin-bottom:2rem;">Explore our menu and click on items to add them to your favorites!</p>
-        <a href="menu.html" class="btn-primary" style="display:inline-block;text-decoration:none;padding:0.8rem 1.8rem;border-radius:30px;">Go to Menu</a>
-      </div>
-    `;
+    recentlyViewedSection.style.display =
+      "none";
+
     return;
   }
  
@@ -412,7 +441,10 @@ function applyAllFilters() {
     let filtered = menuItems;
  
     if (currentCategory !== "All") {
-      filtered = filtered.filter(item => item.category === currentCategory);
+      filtered = filtered.filter(
+        (item) =>
+          item.category === currentCategory
+      );
     }
  
     if (query) {
@@ -426,26 +458,47 @@ function applyAllFilters() {
     filtered = filtered.filter(item => item.price <= maxPrice);
  
     if (selectedSpice !== "All") {
-      filtered = filtered.filter(item => item.spice === selectedSpice);
+      filtered = filtered.filter(
+        (item) =>
+          item.spice === selectedSpice
+      );
     }
  
     if (minRating !== "All") {
-      const ratingVal = parseFloat(minRating);
-      filtered = filtered.filter(item => (item.rating || 5) >= ratingVal);
+      filtered = filtered.filter(
+        (item) =>
+          (item.rating || 5) >=
+          parseFloat(minRating)
+      );
     }
  
     if (veganCheck && veganCheck.checked) {
       filtered = filtered.filter(item => item.dietary && item.dietary.includes("vegan"));
     }
+
+    // Gluten Free
     if (gfCheck && gfCheck.checked) {
-      filtered = filtered.filter(item => item.dietary && item.dietary.includes("gluten-free"));
+      filtered = filtered.filter(
+        (item) =>
+          item.dietary &&
+          item.dietary.includes(
+            "gluten-free"
+          )
+      );
     }
  
     if (filtered.length === 0) {
       menuContainer.innerHTML = `
-        <p style="text-align:center;color:#bf360c;font-weight:600;width:100%;margin-top:2rem;">
+        <p style="
+          text-align:center;
+          color:#bf360c;
+          font-weight:600;
+          margin-top:2rem;
+        ">
           No items found matching your filters.
-        </p>`;
+        </p>
+      `;
+
       return;
     }
  
@@ -475,7 +528,9 @@ function renderCart() {
     }
  
     cart.forEach(({ item, quantity }) => {
-      const cartItem = document.createElement("div");
+      const cartItem =
+        document.createElement("div");
+
       cartItem.className = "cart-item";
       cartItem.tabIndex  = 0;
       cartItem.setAttribute(
@@ -484,14 +539,34 @@ function renderCart() {
       );
  
       cartItem.innerHTML = `
-        <img src="${item.image}" alt="${item.name}" loading="lazy" />
+        <img src="${
+  item.image ||
+  item.img ||
+  item.thumbnail ||
+  (item.items && item.items[0]?.image) ||
+  "https://via.placeholder.com/80"
+}" 
+alt="${item.name}" />
+
         <div class="cart-item-info">
           <h4>${item.name}</h4>
-          <p>${formatPrice(item.price)} each</p>
+
+          <p>
+            ${formatPrice(item.price)} each
+          </p>
+
           <div class="qty-controls">
-            <button aria-label="Decrease ${item.name}" class="qty-decrease">−</button>
+
+            <button class="qty-decrease">
+              −
+            </button>
+
             <span>${quantity}</span>
-            <button aria-label="Increase ${item.name}" class="qty-increase">+</button>
+
+            <button class="qty-increase">
+              +
+            </button>
+
           </div>
         </div>
         <div style="text-align:right;">
@@ -1022,7 +1097,7 @@ function setupSearchSuggestions() {
     if (!searchInput.contains(e.target) && !suggestionsContainer.contains(e.target)) {
       suggestionsContainer.style.display = "none";
     }
-  });
+  );
 }
  
 function setupSearch() {
@@ -1353,12 +1428,12 @@ if (document.readyState === "loading") {
  
 function createSkeletonCard() {
   const el = document.createElement("div");
+
   el.className = "skeleton-card";
   el.setAttribute("aria-hidden", "true");
   el.innerHTML = `
     <span class="skeleton sk-image"></span>
     <span class="skeleton sk-title"></span>
-    <span class="skeleton sk-desc-line"></span>
     <span class="skeleton sk-desc-line"></span>
     <span class="skeleton sk-price"></span>
     <span class="skeleton sk-btn"></span>
@@ -1368,6 +1443,7 @@ function createSkeletonCard() {
  
 function showSkeletonCards(container, count = 3) {
   if (!container) return;
+
   container.innerHTML = "";
   for (let i = 0; i < count; i++) container.appendChild(createSkeletonCard());
 }
@@ -1378,6 +1454,7 @@ function createSkeletonCartItem() {
   el.setAttribute("aria-hidden", "true");
   el.innerHTML = `
     <span class="skeleton sk-thumb"></span>
+
     <div class="sk-lines">
       <span class="skeleton sk-line-name"></span>
       <span class="skeleton sk-line-price"></span>
@@ -1389,6 +1466,7 @@ function createSkeletonCartItem() {
  
 function showSkeletonCartItems(count = 2) {
   if (!cartItemsContainer) return;
+
   cartItemsContainer.innerHTML = "";
   for (let i = 0; i < count; i++) cartItemsContainer.appendChild(createSkeletonCartItem());
 }
